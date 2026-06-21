@@ -1152,6 +1152,6 @@ localPlayer.Idled:Connect(function()
 	VirtualUser:Button2Up(Vector2.new(0, 0), workspace.CurrentCamera.CFrame)
 end)
 
-task.wait(2) -- DO NOT REMOVE
+task.wait(10) -- DO NOT REMOVE
 Scan()
 Rayfield:LoadConfiguration()
