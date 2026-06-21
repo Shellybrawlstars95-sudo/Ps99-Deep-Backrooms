@@ -13,14 +13,27 @@ if typeof(require) ~= "function" then
 	return
 end
 
-local Network = require(game.ReplicatedStorage.Library.Client.Network)
-local InstancingCmds = require(game.ReplicatedStorage.Library.Client.InstancingCmds)
-local MiscItem = require(game.ReplicatedStorage.Library.Items.MiscItem)
-local EggCmds = require(game.ReplicatedStorage.Library.Client.EggCmds)
-local CustomEggsCmds = require(game.ReplicatedStorage.Library.Client.CustomEggsCmds)
-local PlayerPet = require(game.ReplicatedStorage.Library.Client.PlayerPet)
-local InventoryCmds = require(game.ReplicatedStorage.Library.Client.InventoryCmds)
-local CurrencyCmds = require(game.ReplicatedStorage.Library.Client.CurrencyCmds)
+local function safeRequire(path)
+	local success, result = pcall(function()
+		return require(path)
+	end)
+
+	if success then
+		return result
+	else
+		warn("FAILED REQUIRE:", path:GetFullName(), result)
+		return nil
+	end
+end
+
+local Network = safeRequire(game.ReplicatedStorage.Library.Client.Network)
+local InstancingCmds = safeRequire(game.ReplicatedStorage.Library.Client.InstancingCmds)
+local MiscItem = safeRequire(game.ReplicatedStorage.Library.Items.MiscItem)
+local EggCmds = safeRequire(game.ReplicatedStorage.Library.Client.EggCmds)
+local CustomEggsCmds = safeRequire(game.ReplicatedStorage.Library.Client.CustomEggsCmds)
+local PlayerPet = safeRequire(game.ReplicatedStorage.Library.Client.PlayerPet)
+local InventoryCmds = safeRequire(game.ReplicatedStorage.Library.Client.InventoryCmds)
+local CurrencyCmds = safeRequire(game.ReplicatedStorage.Library.Client.CurrencyCmds)
 
 print("All modules loaded")
 
