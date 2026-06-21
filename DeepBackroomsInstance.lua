@@ -359,7 +359,7 @@ local function TeleportToRoom(roomModel, ignore)
 	end
 
 	if (not ignore) and roomId == "DeepLockedEggRoom" then
-		task.wait(0.5)
+		task.wait(1)
 		local activeInstance = InstancingCmds.Get()
 		if activeInstance then
 			local ok, playerDataList = pcall(function()
@@ -409,7 +409,7 @@ repeat
 	else
 		warn("No Backrooms folder yet")
 	end
-until folder and #folder:GetChildren() > 0
+until folder and #folder:GetChildren() > 5
 
 task.wait(5)
 	
@@ -896,7 +896,7 @@ ServerHopButton = MiscTab:CreateButton({
 
 task.spawn(function()
 	while true do
-		task.wait(0.5)
+		task.wait(1)
 
 		if not _G.AutoTPBestEgg then
 			continue
@@ -942,7 +942,7 @@ end)
 
 task.spawn(function()
 	while true do
-		task.wait(0.5)
+		task.wait(1)
 
 		if not _G.AutoTPLockedEgg then
 			continue
@@ -1018,7 +1018,7 @@ end)
 
 task.spawn(function()
 	while true do
-		task.wait(0.5)
+		task.wait(1)
 
 		if not _G.AutoMiniBoss then
 			continue
