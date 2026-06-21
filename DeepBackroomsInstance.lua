@@ -351,8 +351,24 @@ local function TeleportToRoom(roomModel, ignore)
 		end
 	end)
 
-	rootPart.Anchored = true
-	rootPart.CFrame = roomModel:GetPivot() + Vector3.new(0, 5, 0)
+rootPart.Anchored = true
+rootPart.CFrame = CFrame.new(roomModel:GetPivot().Position)
+
+task.wait(0.5)
+
+local targetObj = roomModel:FindFirstChild("Sign")
+	or roomModel:FindFirstChild("Backrooms Egg")
+	or roomModel:FindFirstChild("EggPedestal")
+	or roomModel:FindFirstChildWhichIsA("BasePart", true)
+
+if targetObj then
+	if targetObj:IsA("BasePart") then
+		rootPart.CFrame = CFrame.new(targetObj.Position + Vector3.new(0,5,0))
+	elseif targetObj:IsA("Model") and targetObj.PrimaryPart then
+		rootPart.CFrame = CFrame.new(targetObj.PrimaryPart.Position + Vector3.new(0,5,0))
+	end
+end
+
 	
 	if (not ignore) and (roomId == "DeepLockedEggRoom" or roomId == "GameMastersStage") then
 		UnlockRoom(roomUID)
