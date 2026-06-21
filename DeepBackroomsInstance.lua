@@ -22,6 +22,8 @@ local PlayerPet = require(game.ReplicatedStorage.Library.Client.PlayerPet)
 local InventoryCmds = require(game.ReplicatedStorage.Library.Client.InventoryCmds)
 local CurrencyCmds = require(game.ReplicatedStorage.Library.Client.CurrencyCmds)
 
+print("All modules loaded")
+
 local localPlayer = Players.LocalPlayer
 local enterPosition = nil
 
