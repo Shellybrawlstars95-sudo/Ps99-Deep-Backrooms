@@ -26,14 +26,26 @@ local function safeRequire(path)
 	end
 end
 
-local Network = safeRequire(game.ReplicatedStorage.Library.Client.Network)
-local InstancingCmds = safeRequire(game.ReplicatedStorage.Library.Client.InstancingCmds)
-local MiscItem = safeRequire(game.ReplicatedStorage.Library.Items.MiscItem)
-local EggCmds = safeRequire(game.ReplicatedStorage.Library.Client.EggCmds)
-local CustomEggsCmds = safeRequire(game.ReplicatedStorage.Library.Client.CustomEggsCmds)
-local PlayerPet = safeRequire(game.ReplicatedStorage.Library.Client.PlayerPet)
-local InventoryCmds = safeRequire(game.ReplicatedStorage.Library.Client.InventoryCmds)
-local CurrencyCmds = safeRequire(game.ReplicatedStorage.Library.Client.CurrencyCmds)
+local Network = require(game.ReplicatedStorage.Library.Client.Network)
+local InstancingCmds = require(game.ReplicatedStorage.Library.Client.InstancingCmds)
+local MiscItem = require(game.ReplicatedStorage.Library.Items.MiscItem)
+local EggCmds = require(game.ReplicatedStorage.Library.Client.EggCmds)
+local CustomEggsCmds = require(game.ReplicatedStorage.Library.Client.CustomEggsCmds)
+local PlayerPet = require(game.ReplicatedStorage.Library.Client.PlayerPet)
+local InventoryCmds = require(game.ReplicatedStorage.Library.Client.InventoryCmds)
+local CurrencyCmds = require(game.ReplicatedStorage.Library.Client.CurrencyCmds)
+
+if not Network then
+	error("Network failed to load")
+end
+
+if not InstancingCmds then
+	error("InstancingCmds failed to load")
+end
+
+if not CustomEggsCmds then
+	error("CustomEggsCmds failed to load")
+end
 
 print("All modules loaded")
 
