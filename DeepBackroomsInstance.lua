@@ -63,6 +63,7 @@ _G.AutoTPBestEgg = false
 _G.AutoMiniBoss = false
 _G.AutoTPLockedEgg = false
 _G.InfinitePetSpeed = false
+_G.AutoTapper = false
 
 _G.SelectedLockedEggMult = "Any"
 
@@ -403,6 +404,53 @@ end
 
 	_G.Teleporting = false
 end
+
+task.spawn(function()
+	while true do
+		task.wait(0.1)
+
+		if not _G.AutoTapper then
+			continue
+		end
+
+		local character = getCharacter()
+		if not character then
+			continue
+		end
+
+		local things = workspace:FindFirstChild("__THINGS")
+		local breakablesFolder = things and things:FindFirstChild("Breakables")
+
+		if not breakablesFolder then
+			continue
+		end
+
+		local tapRange = 150
+		local nearestDistance = math.huge
+		local nearestBreakableUID = nil
+
+		for _, breakable in ipairs(breakablesFolder:GetChildren()) do
+			local uid = breakable:GetAttribute("BreakableUID")
+
+			if uid
+				and not breakable:GetAttribute("ManualDamage")
+				and not breakable:GetAttribute("DisableDamage") then
+
+				local distance =
+					(breakable:GetPivot().Position - character:GetPivot().Position).Magnitude
+
+				if distance < tapRange and distance < nearestDistance then
+					nearestDistance = distance
+					nearestBreakableUID = uid
+				end
+			end
+		end
+
+		if nearestBreakableUID then
+			Network.UnreliableFire("Breakables_PlayerDealDamage", nearestBreakableUID)
+		end
+	end
+end)
 
 local function Scan()
 	if _G.IsScanning == true then
@@ -893,6 +941,15 @@ InfPetSpeedButton = MiscTab:CreateToggle({
 	Flag = "InfinitePetSpeed",
 	Callback = function(value)
 		_G.InfinitePetSpeed = value
+	end,
+})
+
+local AutoTapperToggle = MiscTab:CreateToggle({
+	Name = "Auto Tapper",
+	CurrentValue = false,
+	Flag = "AutoTapper",
+	Callback = function(value)
+		_G.AutoTapper = value
 	end,
 })
 
