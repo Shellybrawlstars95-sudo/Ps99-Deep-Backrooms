@@ -1,0 +1,314 @@
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local player = Players.LocalPlayer
+local character = player.Character or player.CharacterAdded:Wait()
+
+-- НАСТРОЙКИ (подбери под себя)
+local CONFIG = {
+    MoveSpeed = 55,                     -- скорость ховерборда
+    OrbNames = {"Orb", "OrbPart", "Collectible"}, -- имена орбов
+    GroundOffset = 2.5,                 -- высота над полом
+    MaxHeightDifference = 15,           -- разрешённый перепад высот
+    ArriveDistance = 4,                 -- дистанция для сбора
+    SearchCooldown = 0.1,               -- пауза между поисками, если орбов нет
+}
+
+-- Состояние
+local autoCollect = false
+local score = 0
+local currentTarget = nil
+local moveLoop = nil
+local searchTimer = 0
+
+-- Поиск всех орбов (по имени)
+local function findAllOrbs()
+    local orbs = {}
+    for _, name in ipairs(CONFIG.OrbNames) do
+        for _, obj in ipairs(workspace:GetDescendants()) do
+            if obj:IsA("BasePart") and obj.Name == name and obj.Parent ~= character then
+                table.insert(orbs, obj)
+            end
+        end
+    end
+    return orbs
+end
+
+-- Поиск ближайшего подходящего орба (с учётом высоты)
+local function findNearestOrb()
+    local hrp = character:FindFirstChild("HumanoidRootPart")
+    if not hrp then return nil end
+    local charPos = hrp.Position
+    local bestDist = math.huge
+    local bestOrb = nil
+
+    local allOrbs = findAllOrbs()
+    for _, orb in ipairs(allOrbs) do
+        if orb and orb.Parent then
+            local dist = (orb.Position - charPos).Magnitude
+            local heightDiff = orb.Position.Y - charPos.Y
+            if heightDiff < CONFIG.MaxHeightDifference and heightDiff > -5 then
+                if dist < bestDist then
+                    bestDist = dist
+                    bestOrb = orb
+                end
+            end
+        end
+    end
+    return bestOrb
+end
+
+-- Определение высоты земли (Raycast)
+local function getGroundY(position)
+    local raycastParams = RaycastParams.new()
+    raycastParams.FilterType = Enum.RaycastFilterType.Blacklist
+    raycastParams.FilterDescendantsInstances = {character}
+    local origin = position + Vector3.new(0, 10, 0)
+    local result = workspace:Raycast(origin, Vector3.new(0, -100, 0), raycastParams)
+    if result then
+        return result.Position.Y
+    else
+        return position.Y - 5
+    end
+end
+
+-- Получить целевую позицию для орба (на земле)
+local function getTargetPosition(orb)
+    if not orb then return nil end
+    local groundY = getGroundY(orb.Position)
+    local targetY = math.max(groundY + CONFIG.GroundOffset, orb.Position.Y - 2) -- страховка
+    return Vector3.new(orb.Position.X, targetY, orb.Position.Z)
+end
+
+-- Обновить GUI счётчика
+local function updateScoreGUI()
+    local gui = player.PlayerGui:FindFirstChild("OrbGUI")
+    if gui then
+        local label = gui:FindFirstChild("ScoreLabel")
+        if label then label.Text = "Собрано: " .. tostring(score) end
+    end
+end
+
+-- Остановка движения
+local function stopMoving()
+    if moveLoop then
+        moveLoop:Disconnect()
+        moveLoop = nil
+    end
+    currentTarget = nil
+    local humanoid = character:FindFirstChild("Humanoid")
+    if humanoid then humanoid.AutoRotate = true end
+end
+
+-- ЗАПУСК БЕСКОНЕЧНОГО СБОРА (исправленная логика)
+local function startAutoCollect()
+    if moveLoop then return end
+    local humanoid = character:FindFirstChild("Humanoid")
+    if humanoid then humanoid.AutoRotate = false end
+
+    moveLoop = RunService.Heartbeat:Connect(function(deltaTime)
+        if not autoCollect then return end
+
+        -- Проверка персонажа
+        if not character or not character.Parent then
+            character = player.CharacterAdded:Wait()
+            return
+        end
+        local hrp = character:FindFirstChild("HumanoidRootPart")
+        if not hrp then return end
+
+        -- Если нет цели или цель уничтожена – ищем новую
+        if not currentTarget or not currentTarget.Parent then
+            currentTarget = findNearestOrb()
+            if not currentTarget then
+                -- Если орбов нет, ждём немного, чтобы не грузить процессор
+                task.wait(CONFIG.SearchCooldown)
+                return
+            end
+            -- Цель найдена – продолжаем
+        end
+
+        -- Теперь у нас есть текущая цель
+        local targetPos = getTargetPosition(currentTarget)
+        if not targetPos then
+            currentTarget = nil
+            return
+        end
+
+        local currentPos = hrp.Position
+        local direction = (targetPos - currentPos)
+        local distance = direction.Magnitude
+
+        -- Если достигли орба – собираем
+        if distance < CONFIG.ArriveDistance then
+            if currentTarget and currentTarget.Parent then
+                currentTarget:Destroy()
+            end
+            score = score + 1
+            updateScoreGUI()
+            currentTarget = nil   -- сброс для поиска нового на следующем тике
+            return
+        end
+
+        -- Движение с фиксированной скоростью (ховерборд)
+        local step = direction.Unit * CONFIG.MoveSpeed * deltaTime
+        if step.Magnitude >= distance then
+            hrp.CFrame = CFrame.new(targetPos)
+        else
+            hrp.CFrame = hrp.CFrame + step
+        end
+    end)
+end
+
+-- Остановка всего
+local function stopAutoCollect()
+    autoCollect = false
+    stopMoving()
+end
+
+-- СОЗДАНИЕ GUI С ПЕРЕТАСКИВАНИЕМ
+local function createGUI()
+    local screenGui = Instance.new("ScreenGui")
+    screenGui.Name = "OrbGUI"
+    screenGui.Parent = player.PlayerGui
+
+    local frame = Instance.new("Frame")
+    frame.Size = UDim2.new(0, 260, 0, 140)
+    frame.Position = UDim2.new(0, 10, 0, 10)
+    frame.BackgroundColor3 = Color3.fromRGB(20, 20, 30)
+    frame.BackgroundTransparency = 0.2
+    frame.BorderSizePixel = 2
+    frame.BorderColor3 = Color3.fromRGB(0, 200, 255)
+    frame.Parent = screenGui
+
+    -- Заголовок (для перетаскивания)
+    local title = Instance.new("TextLabel")
+    title.Size = UDim2.new(0, 210, 0, 30)
+    title.Position = UDim2.new(0.5, -105, 0, 5)
+    title.BackgroundTransparency = 0.5
+    title.BackgroundColor3 = Color3.fromRGB(0, 100, 150)
+    title.Text = "SWILL Orb Collector"
+    title.TextColor3 = Color3.fromRGB(255, 255, 255)
+    title.TextScaled = true
+    title.Font = Enum.Font.GothamBold
+    title.Parent = frame
+
+    -- Кнопка закрытия
+    local closeBtn = Instance.new("TextButton")
+    closeBtn.Size = UDim2.new(0, 25, 0, 25)
+    closeBtn.Position = UDim2.new(1, -30, 0, 5)
+    closeBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+    closeBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    closeBtn.Text = "✕"
+    closeBtn.TextScaled = true
+    closeBtn.Font = Enum.Font.GothamBold
+    closeBtn.Parent = frame
+    closeBtn.MouseButton1Click:Connect(function()
+        screenGui.Enabled = false
+    end)
+
+    -- Счётчик
+    local scoreLabel = Instance.new("TextLabel")
+    scoreLabel.Name = "ScoreLabel"
+    scoreLabel.Size = UDim2.new(0, 210, 0, 25)
+    scoreLabel.Position = UDim2.new(0.5, -105, 0, 40)
+    scoreLabel.BackgroundTransparency = 1
+    scoreLabel.Text = "Собрано: 0"
+    scoreLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+    scoreLabel.TextScaled = true
+    scoreLabel.Font = Enum.Font.Gotham
+    scoreLabel.Parent = frame
+
+    -- Статус
+    local statusLabel = Instance.new("TextLabel")
+    statusLabel.Name = "StatusLabel"
+    statusLabel.Size = UDim2.new(0, 210, 0, 20)
+    statusLabel.Position = UDim2.new(0.5, -105, 0, 65)
+    statusLabel.BackgroundTransparency = 1
+    statusLabel.Text = "Статус: ВЫКЛ"
+    statusLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+    statusLabel.TextScaled = true
+    statusLabel.Font = Enum.Font.Gotham
+    statusLabel.Parent = frame
+
+    -- Кнопка вкл/выкл
+    local toggleBtn = Instance.new("TextButton")
+    toggleBtn.Name = "ToggleButton"
+    toggleBtn.Size = UDim2.new(0, 180, 0, 35)
+    toggleBtn.Position = UDim2.new(0.5, -90, 0, 90)
+    toggleBtn.BackgroundColor3 = Color3.fromRGB(0, 200, 80)
+    toggleBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    toggleBtn.TextScaled = true
+    toggleBtn.Font = Enum.Font.GothamBold
+    toggleBtn.Text = "ВКЛЮЧИТЬ"
+    toggleBtn.Parent = frame
+
+    -- ------------------------------------------------------------
+    -- ПЕРЕТАСКИВАНИЕ МЕНЮ
+    -- ------------------------------------------------------------
+    local dragging = false
+    local dragStartMousePos = nil
+    local dragStartFramePos = nil
+
+    title.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            dragging = true
+            dragStartMousePos = input.Position
+            dragStartFramePos = frame.Position
+        end
+    end)
+
+    title.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            dragging = false
+        end
+    end)
+
+    UserInputService.InputChanged:Connect(function(input)
+        if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+            local delta = input.Position - dragStartMousePos
+            frame.Position = UDim2.new(
+                dragStartFramePos.X.Scale,
+                dragStartFramePos.X.Offset + delta.X,
+                dragStartFramePos.Y.Scale,
+                dragStartFramePos.Y.Offset + delta.Y
+            )
+        end
+    end)
+
+    return toggleBtn, statusLabel, scoreLabel
+end
+
+-- Инициализация
+local toggleButton, statusLabel, scoreLabel = createGUI()
+toggleButton.MouseButton1Click:Connect(function()
+    autoCollect = not autoCollect
+    if autoCollect then
+        toggleButton.Text = "ВЫКЛЮЧИТЬ"
+        toggleButton.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+        statusLabel.Text = "Статус: ВКЛ"
+        startAutoCollect()
+    else
+        toggleButton.Text = "ВКЛЮЧИТЬ"
+        toggleButton.BackgroundColor3 = Color3.fromRGB(0, 200, 80)
+        statusLabel.Text = "Статус: ВЫКЛ"
+        stopAutoCollect()
+    end
+end)
+
+updateScoreGUI()
+print("[SWILL] Исправленный сборщик орбов готов. Нажми ВКЛЮЧИТЬ.")
+
+-- Смена персонажа
+player.CharacterAdded:Connect(function(newChar)
+    character = newChar
+    if autoCollect then
+        stopAutoCollect()
+        startAutoCollect()
+    end
+end)
+
+-- Завершение
+game:BindToClose(function()
+    stopAutoCollect()
+end)
